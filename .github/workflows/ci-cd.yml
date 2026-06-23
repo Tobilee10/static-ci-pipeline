@@ -1,0 +1,142 @@
+name: Production Dockerized Website CI/CD
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  
+env:
+  IMAGE_NAME: devops-static-site
+
+jobs:
+  
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Validate HTML
+        run: |
+          if [ ! -f index.html ]; then
+            echo "index.html not found!"
+            exit 1  
+          fi
+        working-directory: ./dockerised-static-website-pipeline
+      
+      - name: Validate CSS
+        run: |
+          if [ ! -f styles.css ]; then
+            echo "styles.css not found!"
+            exit 1
+          fi
+        working-directory: ./dockerised-static-website-pipeline
+
+  lint:
+    
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install HTMLHint
+        run: npm install -g htmlhint
+
+      - name: Lint HTML
+        run: htmlhint index.html
+
+      - name: Install Stylelint
+        run: |
+          npm install -g stylelint stylelint-config-standard
+
+      # Note: Ensure you have a .stylelintrc file in your repo, or this step might fail.
+      - name: Lint CSS
+        run: stylelint "**/*.css" --config stylelint-config-standard
+  
+  build-scan-push:
+    needs: lint
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Generate Version Tag
+        id: version
+        run: |
+          echo "tag=v1.${GITHUB_RUN_NUMBER}" >> $GITHUB_OUTPUT
+
+      - name: Set Up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Build locally first so Trivy can scan it before it goes to the registry
+      - name: Build Docker Image Locally
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
+
+      - name: Scan Image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0 # Using a highly stable pin for standard runner scanning
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
+      # Push only if the Trivy scan passes successfully
+      - name: Push Docker Images
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
+  
+  # deploy:
+  #   needs: build-scan-push
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Deploy to AWS EC2
+  #       uses: appleboy/ssh-action@v1.2.0
+  #       with:
+  #         host: ${{ secrets.EC2_HOST }}
+  #         username: ${{ secrets.EC2_USER }}
+  #         key: ${{ secrets.EC2_SSH_KEY }}
+  #         script: |
+  #           # Pull the specific, immutable version tag passed from the build job
+  #           docker pull ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build-scan-push.outputs.image_tag }}
+            
+  #           # Stop and remove the old container safely
+  #           docker stop website || true
+  #           docker rm website || true
+            
+  #           # Run the new container using the explicit version tag
+  #           docker run -d \
+  #             --name website \
+  #             --restart unless-stopped \
+  #             -p 80:80 \
+  #             ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ needs.build-scan-push.outputs.image_tag }}
+
+  # health-check:
+  #   needs: deploy
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Verify Website Availability
+  #       run: |
+  #         sleep 15
+  #         curl --fail --connect-timeout 5 --retry 3 http://${{ secrets.EC2_HOST }} || exit 1
