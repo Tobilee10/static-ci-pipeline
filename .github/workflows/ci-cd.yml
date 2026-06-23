@@ -48,14 +48,20 @@ jobs:
       - name: Lint HTML
         run: htmlhint index.html
 
-      - name: Install Stylelint
+      - name: Set up Node 
+        uses: actions/setup-node@v4 
+        with: 
+          node-version: '18'
+        
+      - name: Install stylelint locally 
         run: |
-          npm install -g stylelint stylelint-config-standard
+          npm init -y 
+          npm install --save-dev stylelint stylelint-config-standard
 
-      # Note: Ensure you have a .stylelintrc file in your repo, or this step might fail.
       - name: Lint CSS
-        run: stylelint "**/*.css" --config stylelint-config-standard
-  
+        run: npx stylelint "**/*.css"
+
+
   build-scan-push:
     needs: lint
     runs-on: ubuntu-latest
