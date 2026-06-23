@@ -24,7 +24,7 @@ jobs:
             echo "index.html not found!"
             exit 1  
           fi
-        working-directory: ./dockerised-static-website-pipeline
+        working-directory: ./static-ci-pipeline
       
       - name: Validate CSS
         run: |
@@ -32,7 +32,7 @@ jobs:
             echo "styles.css not found!"
             exit 1
           fi
-        working-directory: ./dockerised-static-website-pipeline
+        working-directory: ./static-ci-pipeline
 
   lint:
     
