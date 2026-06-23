@@ -103,7 +103,7 @@ jobs:
             ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
 
       - name: Scan Image with Trivy
-        uses: aquasecurity/trivy-action@v0.28.0 # Using a highly stable pin for standard runner scanning
+        uses: aquasecurity/trivy-action@master # Using a highly stable pin for standard runner scanning
         with:
           image-ref: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
           format: 'table'
