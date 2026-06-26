@@ -66,8 +66,6 @@ DOCKER_USERNAME |	Your Docker Hub account username | my-docker-user
    ```bash
 
     git clone https://github.com/Tobilee10/static-ci-pipeline.git
-
-    cd YOUR_REPO_NAME
     
 
 2. **Ensure your configuration files exist:**
@@ -80,13 +78,55 @@ DOCKER_USERNAME |	Your Docker Hub account username | my-docker-user
    git push origin main
 
     Monitor the Run: Head over to the Actions tab of your GitHub repository to watch the multi-stage visual pipeline execute.
+## Image Pushed successfully into Docker Hub Repository
+![success](/static-ci-pipeline/images/docker-hub-success.png)
 
-## Challenges Faced:
+## Challenges Faced & Solution:
 
-Docker Hub personal access token (Read and Write Permission)
+<details>
+<summary><b>1. Docker Build Context Mismatch (failed to calculate checksum)</b></summary>
 
-Lint style.css error
+- **The Challenge:** While setting up the automated CI deployment pipeline, the GitHub Actions build failed during the Docker build stage with a `failed to calculate checksum:... not found` error for `index.html` and `styles.css`.
+![](/static-ci-pipeline/images/docker-error3.png)
+- **The Cause:** The repository was structured with application files inside an `app/` subfolder. Because the Docker build execution was triggered from the root repository directory, the `Dockerfile`'s default `COPY index.html .` and `COPY styles.css` command looked in the wrong location.
+- **The Solution:** Adjusted the build context configuration within the `Dockerfile` by updating the source paths (`COPY app/index.html .`) and `COPY app/css/styles.css .` to correctly map relative to the project root directory.
+</details>
 
-Trivy Version Not found
+<details>
+<summary><b>2. Git Divergent Branches Warning</b></summary>
 
-The Docker build fails because COPY in my Dockerfile (lines 5–6) references files that are not in the build context: index.html and styles.css.
+- **The Challenge:** Encountered a blocking Git warning regarding divergent local and remote branches (`reconcile them... before your next pull`) when syncing local updates.
+- **The Solution:** Configured a clear pull strategy preference (`git config pull.rebase true`) to maintain a clean, linear commit history before pulling the changes down safely.
+</details>
+
+
+<details>
+<summary><b>3. Docker Hub Personal Access Token (PAT) Authentication Failures</b></summary>
+
+- **The Challenge:** Automated GitHub Actions workflows failed during the docker login or push stages, returning `Permission Denied` errors despite utilizing the correct credentials.
+![](/static-ci-pipeline/images)
+- **The Cause:** The Docker Hub Personal Access Token (PAT) used in GitHub Secrets was initially generated with restricted or `Read-Only` permissions, preventing the CI/CD pipeline from pushing newly built images to the registry.
+- **The Solution:** Regenerated the Personal Access Token in the Docker Hub account settings, explicitly assigning it **Read & Write** permissions, and updated the corresponding repository secret in GitHub.
+</details>
+
+
+<details>
+<summary><b>4. Stylelint Configuration Errors during CSS Linting</b></summary>
+
+- **The Challenge:** The CSS linting job in the CI pipeline failed to execute or threw formatting errors because it lacked standard rulesets for evaluating `styles.css`.
+![](/static-ci-pipeline/images/lint-css-error.png)
+- **The Cause:** The workflow could not find a local runtime configuration file specifying the structural and syntax expectations for the codebase.
+- **The Solution:** Created and deployed a `.stylelintrc.json` configuration file at the application level, extending standard community rulesets (`stylelint-config-standard`) to enforce uniform style properties across the stylesheet.
+</details>
+
+
+<details>
+<summary><b>5. Trivy Vulnerability Scan Failures (Version Not Found)</b></summary>
+
+- **The Challenge:** Security analysis phases using the Aquasecurity Trivy action crashed mid-execution with an error indicating a specific tool version or database reference was `not found`.
+![](/static-ci-pipeline/images/trivy-error.png)
+- **The Cause:** The workflow file was referencing an outdated, deprecated, or hardcoded version tag of the Trivy GitHub Action that no longer aligned with the current remote vulnerability databases.
+- **The Solution:** Updated the workflow step to reference the latest stable major release of the official GitHub Action (`aquasecurity/trivy-action@master`), ensuring smooth image parsing and up-to-date vulnerability fetching.
+</details>
+
+
