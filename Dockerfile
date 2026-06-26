@@ -2,8 +2,8 @@ FROM nginx:alpine
 
 WORKDIR /usr/share/nginx/html
 
-COPY index.html .
-COPY styles.css .
+COPY /app/index.html .
+COPY /app/css/styles.css .
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 80

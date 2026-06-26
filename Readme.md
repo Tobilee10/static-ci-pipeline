@@ -88,3 +88,5 @@ Docker Hub personal access token (Read and Write Permission)
 Lint style.css error
 
 Trivy Version Not found
+
+The Docker build fails because COPY in my Dockerfile (lines 5–6) references files that are not in the build context: index.html and styles.css.
