@@ -1,4 +1,4 @@
-name: Production Dockerized Website CI/CD
+name: Dockerized CI Website  PIpeline
 
 on:
   push:
@@ -6,12 +6,6 @@ on:
       - main
   workflow_dispatch:
 
-# permissions:
-#   contents: read
-#   id-token: write
-#   actions: read
-#   pull-requests: write
-#   issues: write
 
 env:
   IMAGE_NAME: devops-static-site
@@ -31,6 +25,7 @@ jobs:
             echo "index.html not found!"
             exit 1  
           fi
+        working-directory: ./app
         
       
       - name: Validate CSS
@@ -39,6 +34,9 @@ jobs:
             echo "styles.css not found!"
             exit 1
           fi
+        working-directory: ./app/css
+
+
         
 
   lint:
@@ -48,12 +46,14 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        
 
       - name: Install HTMLHint
         run: npm install -g htmlhint
 
       - name: Lint HTML
         run: htmlhint index.html
+        working-directory: ./app
 
       - name: Set up Node 
         uses: actions/setup-node@v4 
@@ -66,8 +66,8 @@ jobs:
           npm install --save-dev stylelint stylelint-config-standard
 
       - name: Lint CSS
-        run: npx stylelint "**/*.css"
-
+        run: npx stylelint "./app/css/**/*.css"
+      
 
   build-scan-push:
     needs: lint
